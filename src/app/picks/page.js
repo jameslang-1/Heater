@@ -144,7 +144,7 @@ const PredictionsPage = () => {
                 <div className="flex items-center gap-2 w-32">
                   <span className="text-2xl">{game.awayTeam.logo || '🏀'}</span>
                   <span className="font-semibold">
-                    {game.awayTeam.abbreviation || '---'}
+                    {game.awayTeam.abbreviation || 'team'}
                   </span>
                 </div>
 
@@ -157,7 +157,7 @@ const PredictionsPage = () => {
                 <div className="flex items-center gap-2 w-32">
                   <span className="text-2xl">{game.homeTeam.logo || '🏀'}</span>
                   <span className="font-semibold">
-                    {game.homeTeam.abbreviation || '---'}
+                    {game.homeTeam.abbreviation || 'team'}
                   </span>
                 </div>
               </div>
