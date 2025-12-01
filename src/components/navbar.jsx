@@ -32,7 +32,7 @@ export default function Navbar() {
         <Link href="/profile" className="text-white hover:text-[#ff9f1c] transition-colors">
           Profile
         </Link>
-        <button className="bg-[#ff9f1c] text-black px-4 py-2 rounded-lg font-semibold hover:bg-[#e8900a] transition-colors">
+        <button className="bg-[#ff9f1c] text-black px-4 py-2 rounded-lg font-semibold hover:bg-[#ededed] transition-colors">
           Sign In
         </button>
       </div>
