@@ -1,12 +1,172 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { fetchGames } from '@/services/api';
 
 const PredictionsPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [expandedGame, setExpandedGame] = useState(null);
   const [predictions, setPredictions] = useState({});
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch games from backend
+  useEffect(() => {
+    const loadGames = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchGames();
+        
+        // Transform backend data to match our component structure
+        const transformedGames = transformBackendData(data.games);
+        setGames(transformedGames);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load games');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadGames();
+  }, []);
+
+  // Transform backend data structure to match frontend
+  const transformBackendData = (backendGames) => {
+    return backendGames.map((game) => {
+      // Group player props by player
+      const playerMap = {};
+      
+      game.player_props.forEach((prop) => {
+        if (!playerMap[prop.player_name]) {
+          playerMap[prop.player_name] = {
+            id: prop.id,
+            name: prop.player_name,
+            team: '', // Backend doesn't have team per player, could infer from game
+            props: {}
+          };
+        }
+        
+        playerMap[prop.player_name].props[prop.prop_type] = prop.line;
+      });
+
+      return {
+        id: game.id,
+        homeTeam: {
+          name: game.home_team,
+          abbreviation: getTeamAbbreviation(game.home_team),
+          logo: getTeamLogo(game.home_team)  // Changed from getTeamEmoji
+        },
+        awayTeam: {
+          name: game.away_team,
+          abbreviation: getTeamAbbreviation(game.away_team),
+          logo: getTeamLogo(game.away_team)  // Changed from getTeamEmoji
+        },
+        time: formatGameTime(game.commence_time),
+        date: new Date(game.commence_time),
+        status: getGameStatus(game.commence_time),
+        players: Object.values(playerMap)
+      };
+    });
+  };
+
+  // Helper function to get team abbreviation
+  const getTeamAbbreviation = (teamName) => {
+    const abbrevMap = {
+      'Atlanta Hawks': 'ATL',
+      'Boston Celtics': 'BOS',
+      'Brooklyn Nets': 'BKN',
+      'Charlotte Hornets': 'CHA',
+      'Chicago Bulls': 'CHI',
+      'Cleveland Cavaliers': 'CLE',
+      'Dallas Mavericks': 'DAL',
+      'Denver Nuggets': 'DEN',
+      'Detroit Pistons': 'DET',
+      'Golden State Warriors': 'GSW',
+      'Houston Rockets': 'HOU',
+      'Indiana Pacers': 'IND',
+      'LA Clippers': 'LAC',
+      'Los Angeles Lakers': 'LAL',
+      'Memphis Grizzlies': 'MEM',
+      'Miami Heat': 'MIA',
+      'Milwaukee Bucks': 'MIL',
+      'Minnesota Timberwolves': 'MIN',
+      'New Orleans Pelicans': 'NOP',
+      'New York Knicks': 'NYK',
+      'Oklahoma City Thunder': 'OKC',
+      'Orlando Magic': 'ORL',
+      'Philadelphia 76ers': 'PHI',
+      'Phoenix Suns': 'PHX',
+      'Portland Trail Blazers': 'POR',
+      'Sacramento Kings': 'SAC',
+      'San Antonio Spurs': 'SAS',
+      'Toronto Raptors': 'TOR',
+      'Utah Jazz': 'UTA',
+      'Washington Wizards': 'WAS'
+    };
+    return abbrevMap[teamName] || 'NBA';
+  };
+
+const getTeamLogo = (teamName) => {
+  const logoMap = {
+    'Atlanta Hawks': 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg',
+    'Boston Celtics': 'https://cdn.nba.com/logos/nba/1610612738/primary/L/logo.svg',
+    'Brooklyn Nets': 'https://cdn.nba.com/logos/nba/1610612751/primary/L/logo.svg',
+    'Charlotte Hornets': 'https://cdn.nba.com/logos/nba/1610612766/primary/L/logo.svg',
+    'Chicago Bulls': 'https://cdn.nba.com/logos/nba/1610612741/primary/L/logo.svg',
+    'Cleveland Cavaliers': 'https://cdn.nba.com/logos/nba/1610612739/primary/L/logo.svg',
+    'Dallas Mavericks': 'https://cdn.nba.com/logos/nba/1610612742/primary/L/logo.svg',
+    'Denver Nuggets': 'https://cdn.nba.com/logos/nba/1610612743/primary/L/logo.svg',
+    'Detroit Pistons': 'https://cdn.nba.com/logos/nba/1610612765/primary/L/logo.svg',
+    'Golden State Warriors': 'https://cdn.nba.com/logos/nba/1610612744/primary/L/logo.svg',
+    'Houston Rockets': 'https://cdn.nba.com/logos/nba/1610612745/primary/L/logo.svg',
+    'Indiana Pacers': 'https://cdn.nba.com/logos/nba/1610612754/primary/L/logo.svg',
+    'LA Clippers': 'https://cdn.nba.com/logos/nba/1610612746/primary/L/logo.svg',
+    'Los Angeles Lakers': 'https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg',
+    'Memphis Grizzlies': 'https://cdn.nba.com/logos/nba/1610612763/primary/L/logo.svg',
+    'Miami Heat': 'https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg',
+    'Milwaukee Bucks': 'https://cdn.nba.com/logos/nba/1610612749/primary/L/logo.svg',
+    'Minnesota Timberwolves': 'https://cdn.nba.com/logos/nba/1610612750/primary/L/logo.svg',
+    'New Orleans Pelicans': 'https://cdn.nba.com/logos/nba/1610612740/primary/L/logo.svg',
+    'New York Knicks': 'https://cdn.nba.com/logos/nba/1610612752/primary/L/logo.svg',
+    'Oklahoma City Thunder': 'https://cdn.nba.com/logos/nba/1610612760/primary/L/logo.svg',
+    'Orlando Magic': 'https://cdn.nba.com/logos/nba/1610612753/primary/L/logo.svg',
+    'Philadelphia 76ers': 'https://cdn.nba.com/logos/nba/1610612755/primary/L/logo.svg',
+    'Phoenix Suns': 'https://cdn.nba.com/logos/nba/1610612756/primary/L/logo.svg',
+    'Portland Trail Blazers': 'https://cdn.nba.com/logos/nba/1610612757/primary/L/logo.svg',
+    'Sacramento Kings': 'https://cdn.nba.com/logos/nba/1610612758/primary/L/logo.svg',
+    'San Antonio Spurs': 'https://cdn.nba.com/logos/nba/1610612759/primary/L/logo.svg',
+    'Toronto Raptors': 'https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg',
+    'Utah Jazz': 'https://cdn.nba.com/logos/nba/1610612762/primary/L/logo.svg',
+    'Washington Wizards': 'https://cdn.nba.com/logos/nba/1610612764/primary/L/logo.svg'
+  };
+  
+  return logoMap[teamName] || 'https://cdn.nba.com/logos/leagues/logo-nba.svg';
+};
+
+  // Format game time
+  const formatGameTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  // Determine game status
+  const getGameStatus = (commenceTime) => {
+    const now = new Date();
+    const gameTime = new Date(commenceTime);
+    
+    if (gameTime < now) {
+      return 'final';
+    }
+    return 'upcoming';
+  };
 
   // Generate dates for today through end of week
   const getDatesForWeek = () => {
@@ -42,6 +202,11 @@ const PredictionsPage = () => {
     return date1.toDateString() === date2.toDateString();
   };
 
+  // Filter games by selected date
+  const filteredGames = games.filter(game => {
+    return isSameDay(game.date, selectedDate);
+  });
+
   const toggleGame = (gameId) => {
     setExpandedGame(expandedGame === gameId ? null : gameId);
   };
@@ -53,36 +218,6 @@ const PredictionsPage = () => {
       [key]: prev[key] === choice ? null : choice
     }));
   };
-
-  // Placeholder data structure - replace with backend data
-  const games = [
-    {
-      id: 1,
-      homeTeam: { name: '', abbreviation: '', logo: '' },
-      awayTeam: { name: '', abbreviation: '', logo: '' },
-      time: '',
-      status: '', // 'upcoming', 'live', 'final'
-      players: [
-        { id: 1, name: '', team: '', props: { points: null, rebounds: null, assists: null } },
-        { id: 2, name: '', team: '', props: { points: null, rebounds: null, assists: null } },
-        { id: 3, name: '', team: '', props: { points: null, rebounds: null, assists: null } },
-        { id: 4, name: '', team: '', props: { points: null, rebounds: null, assists: null } },
-      ],
-    },
-    {
-      id: 2,
-      homeTeam: { name: '', abbreviation: '', logo: '' },
-      awayTeam: { name: '', abbreviation: '', logo: '' },
-      time: '',
-      status: '',
-      players: [
-        { id: 5, name: '', team: '', props: { points: null, rebounds: null, assists: null } },
-        { id: 6, name: '', team: '', props: { points: null, rebounds: null, assists: null } },
-        { id: 7, name: '', team: '', props: { points: null, rebounds: null, assists: null } },
-        { id: 8, name: '', team: '', props: { points: null, rebounds: null, assists: null } },
-      ],
-    },
-  ];
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -99,6 +234,26 @@ const PredictionsPage = () => {
       default: return 'UPCOMING';
     }
   };
+
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen bg-[#0a0a0a] text-white p-6 flex items-center justify-center">
+          <div className="text-xl">Loading games...</div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  if (error) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen bg-[#0a0a0a] text-white p-6 flex items-center justify-center">
+          <div className="text-xl text-red-500">{error}</div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>
@@ -134,7 +289,7 @@ const PredictionsPage = () => {
 
         {/* Games List */}
         <div className="space-y-4">
-          {games.map((game) => (
+          {filteredGames.map((game) => (
             <div key={game.id} className="bg-[#1a1a1a] rounded-lg overflow-hidden">
               {/* Game Card - Collapsed */}
               <button
@@ -144,9 +299,9 @@ const PredictionsPage = () => {
                 <div className="flex items-center gap-4 flex-1">
                   {/* Away Team */}
                   <div className="flex items-center gap-2 w-32">
-                    <span className="text-2xl">{game.awayTeam.logo || '🏀'}</span>
+                    <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-8 h-8" />
                     <span className="font-semibold">
-                      {game.awayTeam.abbreviation || 'team'}
+                      {game.awayTeam.abbreviation}
                     </span>
                   </div>
 
@@ -157,9 +312,9 @@ const PredictionsPage = () => {
 
                   {/* Home Team */}
                   <div className="flex items-center gap-2 w-32">
-                    <span className="text-2xl">{game.homeTeam.logo || '🏀'}</span>
+                    <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-8 h-8" />
                     <span className="font-semibold">
-                      {game.homeTeam.abbreviation || 'team'}
+                      {game.homeTeam.abbreviation}
                     </span>
                   </div>
                 </div>
@@ -167,7 +322,7 @@ const PredictionsPage = () => {
                 {/* Time & Status */}
                 <div className="flex items-center gap-4">
                   <span className="text-gray-400 text-sm">
-                    {game.time || '--:-- --'}
+                    {game.time}
                   </span>
                   <span className={`text-xs font-bold ${getStatusColor(game.status)}`}>
                     {getStatusText(game.status)}
@@ -196,7 +351,7 @@ const PredictionsPage = () => {
                         {/* Player Name */}
                         <div className="flex items-center justify-between mb-3">
                           <span className="font-semibold">
-                            {player.name || 'Player Name'}
+                            {player.name}
                           </span>
                           <span className="text-xs text-gray-400">
                             {player.team || '---'}
@@ -310,7 +465,7 @@ const PredictionsPage = () => {
         </div>
 
         {/* Empty State */}
-        {games.length === 0 && (
+        {filteredGames.length === 0 && (
           <div className="text-center text-gray-400 py-12">
             <p>No games scheduled for this date</p>
           </div>
