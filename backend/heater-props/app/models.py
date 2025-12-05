@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, DateTime, Numeric, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, DateTime, Numeric, Float, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -35,8 +35,9 @@ class PlayerProp(Base):
     bookmaker = Column(String(100), nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationship
+    # Relationships
     game = relationship("Game", back_populates="player_props")
+    picks = relationship("Pick", back_populates="player_prop", cascade="all, delete-orphan")
     
     # Composite index for efficient queries
     __table_args__ = (
@@ -45,3 +46,31 @@ class PlayerProp(Base):
     
     def __repr__(self):
         return f"<PlayerProp {self.player_name} {self.prop_type} {self.line}>"
+
+
+class Pick(Base):
+    __tablename__ = "picks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    player_prop_id = Column(Integer, ForeignKey("player_props.id"), nullable=False)
+    user_id = Column(Integer, nullable=True, index=True)  # Optional: track which user made the pick
+    selection = Column(String(10), nullable=False)  # 'over' or 'under'
+    line = Column(Float, nullable=False)  # Store the line at time of pick
+    confidence = Column(String(50), nullable=True)  # Optional: 'high', 'medium', 'low'
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # GRADING FIELDS
+    result = Column(String(10), nullable=True, index=True)  # 'won', 'lost', 'push', or NULL if not graded
+    actual_value = Column(Float, nullable=True)  # Actual stat value from the game
+    graded_at = Column(DateTime, nullable=True)  # When the pick was graded
+    
+    # Relationship
+    player_prop = relationship("PlayerProp", back_populates="picks")
+    
+    # Composite index for efficient queries
+    __table_args__ = (
+        Index('idx_pick_user_result', 'user_id', 'result'),
+    )
+    
+    def __repr__(self):
+        return f"<Pick {self.selection} {self.line} - {self.result or 'pending'}>"

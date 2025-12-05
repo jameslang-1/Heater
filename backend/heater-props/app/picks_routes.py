@@ -1,25 +1,53 @@
 # app/picks_routes.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+import hashlib
+import jwt
 
 from app.database import get_db
+from app import models, schemas
 
 router = APIRouter(prefix="/api/picks", tags=["picks"])
 
-# Temporary auth placeholder - we'll add Firebase auth after testing
-def get_current_user():
-    """Temporary: returns a test user for testing"""
-    # TODO: Replace with Firebase auth verification
-    return {'id': 'test_user_123', 'email': 'test@test.com', 'firebase_uid': 'test_uid'}
+def get_current_user(authorization: str = Header(None)):
+    """Extract user from Firebase auth token and map to integer ID"""
+    if not authorization:
+        # No auth header - use test user
+        return {'id': 1, 'email': 'test@test.com'}
+    
+    try:
+        # Extract token from "Bearer <token>"
+        token = authorization.replace('Bearer ', '')
+        
+        # Decode JWT token (Firebase already verified it on frontend)
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        firebase_uid = decoded.get('user_id') or decoded.get('sub')
+        email = decoded.get('email', 'unknown@unknown.com')
+        
+        # Convert Firebase UID string to consistent integer ID
+        # Use hash of UID to generate a deterministic integer
+        user_id = int(hashlib.sha256(firebase_uid.encode()).hexdigest()[:8], 16)
+        
+        print(f"Authenticated user: {email} (ID: {user_id})")
+        
+        return {
+            'id': user_id,
+            'email': email,
+            'firebase_uid': firebase_uid
+        }
+    except Exception as e:
+        print(f"Auth error: {e}")
+        # Fallback to test user on error
+        return {'id': 1, 'email': 'test@test.com'}
 
 
 # Pydantic models for request/response
 class PickCreate(BaseModel):
     player_name: str
-    prop_type: str  # 'points', 'rebounds', 'assists'
+    prop_type: str
     line: float
     prediction: str  # 'over' or 'under'
     game_id: str
@@ -34,115 +62,86 @@ class PickDelete(BaseModel):
     game_id: str
 
 
-class PickCheck(BaseModel):
-    game_id: str
-
-
-class PickResponse(BaseModel):
-    id: int
-    player_name: str
-    prop_type: str
-    line: float
-    prediction: str
-    game_id: str
-    home_team: str
-    away_team: str
-    game_date: datetime
-    created_at: datetime
-
-
-class PickHistoryResponse(BaseModel):
-    id: int
-    player_name: str
-    prop_type: str
-    line: float
-    prediction: str
-    game_id: str
-    home_team: str
-    away_team: str
-    game_date: datetime
-    actual_result: Optional[float]
-    result: Optional[str]
-    created_at: datetime
-    completed_at: datetime
-
-
-class UserStatsResponse(BaseModel):
-    total_picks: int
-    wins: int
-    losses: int
-    pushes: int
-    win_percentage: float
-    current_streak: int
-    best_streak: int
-    by_prop_type: dict
-    recent_form: List[str]
-    last_updated: datetime
-
-
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def save_pick(
     pick: PickCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """Save a new pick or update existing pick"""
+    """Save a new pick"""
     user_id = current_user['id']
     
     # Validate prediction
     if pick.prediction not in ['over', 'under']:
-        raise HTTPException(status_code=400, detail="Invalid prediction value")
+        raise HTTPException(status_code=400, detail="Invalid prediction. Must be 'over' or 'under'")
     
-    # Validate prop_type
-    if pick.prop_type not in ['points', 'rebounds', 'assists']:
-        raise HTTPException(status_code=400, detail="Invalid prop type")
+    # Find the player prop based on player_name, prop_type, and game
+    game = db.query(models.Game).filter(
+        models.Game.external_id == pick.game_id
+    ).first()
     
-    # Get raw connection from SQLAlchemy session
-    connection = db.connection().connection
-    cursor = connection.cursor()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
     
-    try:
-        # Check if pick already exists
-        cursor.execute('''
-            SELECT id FROM picks 
-            WHERE user_id = ? AND player_name = ? AND prop_type = ? AND game_id = ?
-        ''', (user_id, pick.player_name, pick.prop_type, pick.game_id))
-        
-        existing_pick = cursor.fetchone()
-        
-        if existing_pick:
-            # Update existing pick
-            cursor.execute('''
-                UPDATE picks 
-                SET line = ?, prediction = ?
-                WHERE id = ?
-            ''', (pick.line, pick.prediction, existing_pick[0]))
-            pick_id = existing_pick[0]
-        else:
-            # Insert new pick
-            cursor.execute('''
-                INSERT INTO picks (
-                    user_id, player_name, prop_type, line, prediction,
-                    game_id, home_team, away_team, game_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                user_id, pick.player_name, pick.prop_type, pick.line,
-                pick.prediction, pick.game_id, pick.home_team, 
-                pick.away_team, pick.game_date
-            ))
-            pick_id = cursor.lastrowid
-        
-        connection.commit()
+    prop = db.query(models.PlayerProp).filter(
+        models.PlayerProp.game_id == game.id,
+        models.PlayerProp.player_name == pick.player_name,
+        models.PlayerProp.prop_type == pick.prop_type
+    ).first()
+    
+    if not prop:
+        raise HTTPException(status_code=404, detail="Player prop not found")
+    
+    # Check if pick already exists
+    existing_pick = db.query(models.Pick).filter(
+        models.Pick.user_id == user_id,
+        models.Pick.player_prop_id == prop.id
+    ).first()
+    
+    if existing_pick:
+        # Update existing pick
+        existing_pick.selection = pick.prediction
+        existing_pick.line = pick.line
+        db.commit()
+        db.refresh(existing_pick)
         
         return {
             'success': True,
-            'pick_id': pick_id,
-            'message': 'Pick saved successfully'
+            'pick_id': existing_pick.id,
+            'message': 'Pick updated successfully',
+            'pick': {
+                'id': existing_pick.id,
+                'player_name': prop.player_name,
+                'prop_type': prop.prop_type,
+                'line': existing_pick.line,
+                'selection': existing_pick.selection
+            }
         }
-        
-    except Exception as e:
-        connection.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    # Create new pick
+    new_pick = models.Pick(
+        player_prop_id=prop.id,
+        user_id=user_id,
+        selection=pick.prediction,
+        line=pick.line
+    )
+    
+    db.add(new_pick)
+    db.commit()
+    db.refresh(new_pick)
+    
+    return {
+        'success': True,
+        'pick_id': new_pick.id,
+        'message': 'Pick saved successfully',
+        'pick': {
+            'id': new_pick.id,
+            'player_name': prop.player_name,
+            'prop_type': prop.prop_type,
+            'line': new_pick.line,
+            'selection': new_pick.selection
+        }
+    }
 
 
 @router.delete("/")
@@ -153,219 +152,221 @@ def delete_pick(
 ):
     """Delete a pick"""
     user_id = current_user['id']
-    # Get raw connection from SQLAlchemy session
-    connection = db.connection().connection
-    cursor = connection.cursor()
     
-    try:
-        cursor.execute('''
-            DELETE FROM picks 
-            WHERE user_id = ? AND player_name = ? AND prop_type = ? AND game_id = ?
-        ''', (user_id, pick.player_name, pick.prop_type, pick.game_id))
-        
-        connection.commit()
-        
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail='Pick not found')
-        
-        return {
-            'success': True,
-            'message': 'Pick deleted successfully'
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        connection.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+    # Find the game
+    game = db.query(models.Game).filter(
+        models.Game.external_id == pick.game_id
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Find the prop
+    prop = db.query(models.PlayerProp).filter(
+        models.PlayerProp.game_id == game.id,
+        models.PlayerProp.player_name == pick.player_name,
+        models.PlayerProp.prop_type == pick.prop_type
+    ).first()
+    
+    if not prop:
+        raise HTTPException(status_code=404, detail="Player prop not found")
+    
+    # Find and delete the pick
+    pick_to_delete = db.query(models.Pick).filter(
+        models.Pick.user_id == user_id,
+        models.Pick.player_prop_id == prop.id
+    ).first()
+    
+    if not pick_to_delete:
+        raise HTTPException(status_code=404, detail='Pick not found')
+    
+    db.delete(pick_to_delete)
+    db.commit()
+    
+    return {
+        'success': True,
+        'message': 'Pick deleted successfully'
+    }
 
 
-@router.get("/active", response_model=List[PickResponse])
+@router.get("/active")
 def get_active_picks(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """Get all active picks for the current user"""
+    """Get all active (ungraded) picks for the current user"""
     user_id = current_user['id']
-    # Get raw connection from SQLAlchemy session
-    connection = db.connection().connection
-    cursor = connection.cursor()
     
-    cursor.execute('''
-        SELECT 
-            id, player_name, prop_type, line, prediction,
-            game_id, home_team, away_team, game_date, created_at
-        FROM picks
-        WHERE user_id = ?
-        ORDER BY game_date ASC
-    ''', (user_id,))
+    picks = db.query(models.Pick).filter(
+        models.Pick.user_id == user_id,
+        models.Pick.result == None  # Only ungraded picks
+    ).all()
     
-    picks = []
-    for row in cursor.fetchall():
-        picks.append({
-            'id': row[0],
-            'player_name': row[1],
-            'prop_type': row[2],
-            'line': row[3],
-            'prediction': row[4],
-            'game_id': row[5],
-            'home_team': row[6],
-            'away_team': row[7],
-            'game_date': row[8],
-            'created_at': row[9]
+    result = []
+    for pick in picks:
+        prop = pick.player_prop
+        game = prop.game
+        
+        result.append({
+            'id': pick.id,
+            'player_name': prop.player_name,
+            'prop_type': prop.prop_type,
+            'line': pick.line,
+            'prediction': pick.selection,  # Frontend expects 'prediction'
+            'game_id': game.external_id,
+            'home_team': game.home_team,
+            'away_team': game.away_team,
+            'game_date': game.commence_time,
+            'created_at': pick.created_at
         })
     
-    return picks
+    return {
+        'picks': result,
+        'total': len(result)
+    }
 
 
-@router.post("/check")
-def check_user_picks(
-    check: PickCheck,
+@router.get("/check/{game_id}")
+def check_user_picks_for_game(
+    game_id: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """Check which picks the user has made for specific props"""
+    """Check which picks the user has made for a specific game"""
     user_id = current_user['id']
-    # Get raw connection from SQLAlchemy session
-    connection = db.connection().connection
-    cursor = connection.cursor()
     
-    cursor.execute('''
-        SELECT player_name, prop_type, prediction
-        FROM picks
-        WHERE user_id = ? AND game_id = ?
-    ''', (user_id, check.game_id))
+    # Find the game
+    game = db.query(models.Game).filter(
+        models.Game.external_id == game_id
+    ).first()
     
+    if not game:
+        return {'picks': {}}
+    
+    # Get all props for this game
+    props = db.query(models.PlayerProp).filter(
+        models.PlayerProp.game_id == game.id
+    ).all()
+    
+    prop_ids = [p.id for p in props]
+    
+    # Get user's picks for these props
+    picks = db.query(models.Pick).filter(
+        models.Pick.user_id == user_id,
+        models.Pick.player_prop_id.in_(prop_ids)
+    ).all()
+    
+    # Create lookup dict
     user_picks = {}
-    for row in cursor.fetchall():
-        key = f"{row[0]}-{row[1]}"
-        user_picks[key] = row[2]
+    for pick in picks:
+        prop = pick.player_prop
+        key = f"{prop.player_name}-{prop.prop_type}"
+        user_picks[key] = pick.selection
     
     return {'picks': user_picks}
 
 
-@router.get("/history", response_model=List[PickHistoryResponse])
+@router.get("/history")
 def get_pick_history(
     result: Optional[str] = None,
-    prop_type: Optional[str] = None,
     limit: int = 50,
-    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """Get pick history for the current user"""
+    """Get graded pick history for the current user"""
     user_id = current_user['id']
-    # Get raw connection from SQLAlchemy session
-    connection = db.connection().connection
-    cursor = connection.cursor()
     
-    query = '''
-        SELECT 
-            id, player_name, prop_type, line, prediction,
-            game_id, home_team, away_team, game_date,
-            actual_result, result, created_at, completed_at
-        FROM pick_history
-        WHERE user_id = ?
-    '''
-    params = [user_id]
+    query = db.query(models.Pick).filter(
+        models.Pick.user_id == user_id,
+        models.Pick.result != None  # Only graded picks
+    )
     
     if result:
-        query += ' AND result = ?'
-        params.append(result)
+        query = query.filter(models.Pick.result == result)
     
-    if prop_type:
-        query += ' AND prop_type = ?'
-        params.append(prop_type)
-    
-    query += ' ORDER BY completed_at DESC LIMIT ? OFFSET ?'
-    params.extend([limit, offset])
-    
-    cursor.execute(query, params)
+    picks = query.order_by(models.Pick.graded_at.desc()).limit(limit).all()
     
     history = []
-    for row in cursor.fetchall():
+    for pick in picks:
+        prop = pick.player_prop
+        game = prop.game
+        
         history.append({
-            'id': row[0],
-            'player_name': row[1],
-            'prop_type': row[2],
-            'line': row[3],
-            'prediction': row[4],
-            'game_id': row[5],
-            'home_team': row[6],
-            'away_team': row[7],
-            'game_date': row[8],
-            'actual_result': row[9],
-            'result': row[10],
-            'created_at': row[11],
-            'completed_at': row[12]
+            'id': pick.id,
+            'player_name': prop.player_name,
+            'prop_type': prop.prop_type,
+            'line': pick.line,
+            'prediction': pick.selection,
+            'result': pick.result,
+            'actual_result': pick.actual_value,
+            'game_id': game.external_id,
+            'home_team': game.home_team,
+            'away_team': game.away_team,
+            'game_date': game.commence_time,
+            'created_at': pick.created_at,
+            'completed_at': pick.graded_at
         })
     
     return history
 
 
-@router.get("/stats", response_model=UserStatsResponse)
+@router.get("/stats")
 def get_user_stats(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     """Get user's overall statistics"""
     user_id = current_user['id']
-    # Get raw connection from SQLAlchemy session
-    connection = db.connection().connection
-    cursor = connection.cursor()
     
-    # Get or create user stats
-    cursor.execute('SELECT * FROM user_stats WHERE user_id = ?', (user_id,))
-    stats = cursor.fetchone()
+    # Get all graded picks
+    picks = db.query(models.Pick).filter(
+        models.Pick.user_id == user_id,
+        models.Pick.result != None
+    ).all()
     
-    if not stats:
-        # Create initial stats record
-        cursor.execute('INSERT INTO user_stats (user_id) VALUES (?)', (user_id,))
-        connection.commit()
+    total = len(picks)
+    wins = sum(1 for p in picks if p.result == 'won')
+    losses = sum(1 for p in picks if p.result == 'lost')
+    pushes = sum(1 for p in picks if p.result == 'push')
+    
+    win_percentage = (wins / (wins + losses) * 100) if (wins + losses) > 0 else 0
+    
+    # Calculate by prop type
+    by_prop_type = {}
+    for prop_type in ['points', 'rebounds', 'assists']:
+        type_picks = [p for p in picks if p.player_prop.prop_type == prop_type]
+        type_wins = sum(1 for p in type_picks if p.result == 'won')
+        type_total = len(type_picks)
         
-        cursor.execute('SELECT * FROM user_stats WHERE user_id = ?', (user_id,))
-        stats = cursor.fetchone()
+        by_prop_type[prop_type] = {
+            'total': type_total,
+            'wins': type_wins,
+            'win_rate': round((type_wins / type_total * 100) if type_total > 0 else 0, 1)
+        }
     
-    # Calculate win percentage
-    total_picks = stats[2]
-    wins = stats[3]
-    win_percentage = (wins / total_picks * 100) if total_picks > 0 else 0
+    # Get recent form (last 10)
+    recent_picks = sorted(picks, key=lambda p: p.graded_at if p.graded_at else p.created_at, reverse=True)[:10]
+    recent_form = [p.result for p in recent_picks if p.result in ['won', 'lost']]
     
-    # Get recent form (last 10 picks)
-    cursor.execute('''
-        SELECT result FROM pick_history
-        WHERE user_id = ?
-        ORDER BY completed_at DESC
-        LIMIT 10
-    ''', (user_id,))
-    
-    recent_results = [row[0] for row in cursor.fetchall()]
+    # Calculate current streak
+    current_streak = 0
+    if recent_form:
+        streak_type = recent_form[0]
+        for result in recent_form:
+            if result == streak_type:
+                current_streak += 1 if streak_type == 'won' else -1
+            else:
+                break
     
     return {
-        'total_picks': stats[2],
-        'wins': stats[3],
-        'losses': stats[4],
-        'pushes': stats[5],
+        'total_picks': total,
+        'wins': wins,
+        'losses': losses,
+        'pushes': pushes,
         'win_percentage': round(win_percentage, 1),
-        'current_streak': stats[11],
-        'best_streak': stats[12],
-        'by_prop_type': {
-            'points': {
-                'total': stats[6],
-                'wins': stats[7],
-                'win_rate': round((stats[7] / stats[6] * 100) if stats[6] > 0 else 0, 1)
-            },
-            'rebounds': {
-                'total': stats[8],
-                'wins': stats[9],
-                'win_rate': round((stats[9] / stats[8] * 100) if stats[8] > 0 else 0, 1)
-            },
-            'assists': {
-                'total': stats[10],
-                'wins': stats[11],
-                'win_rate': round((stats[11] / stats[10] * 100) if stats[10] > 0 else 0, 1)
-            }
-        },
-        'recent_form': recent_results,
-        'last_updated': stats[13]
+        'current_streak': current_streak,
+        'best_streak': abs(current_streak),  # Simplified
+        'by_prop_type': by_prop_type,
+        'recent_form': recent_form,
+        'last_updated': datetime.utcnow()
     }

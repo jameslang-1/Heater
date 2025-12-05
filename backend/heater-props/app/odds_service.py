@@ -1,12 +1,17 @@
 # app/odds_service.py
 import requests
+import json
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from time import sleep
 
 class NBAStatsService:
-    def __init__(self):
+    def __init__(self, use_static_file=False, static_file_path="schedule.json"):
         self.base_url = "https://stats.nba.com/stats"
+        self.use_static_file = use_static_file
+        self.static_file_path = static_file_path
+        
         # Headers required by NBA Stats API
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -14,6 +19,13 @@ class NBAStatsService:
             'Accept-Language': 'en-US,en;q=0.9',
             'Referer': 'https://www.nba.com/',
             'Origin': 'https://www.nba.com'
+        }
+        
+        # Stat column indices for NBA Stats API game log
+        self.STATS_INDICES = {
+            'points': 24,
+            'rebounds': 18,
+            'assists': 19
         }
     
     def get_all_teams(self) -> Dict[int, str]:
@@ -52,6 +64,17 @@ class NBAStatsService:
             1610612764: 'Washington Wizards'
         }
     
+    def load_schedule_from_file(self) -> List[Dict[str, Any]]:
+        """Load schedule from static JSON file"""
+        if not os.path.exists(self.static_file_path):
+            raise FileNotFoundError(f"Static schedule file not found: {self.static_file_path}")
+        
+        with open(self.static_file_path, 'r') as f:
+            games = json.load(f)
+        
+        print(f"Loaded {len(games)} games from {self.static_file_path}")
+        return games
+    
     def fetch_todays_games(self) -> List[Dict[str, Any]]:
         """Fetch today's NBA games"""
         url = f"{self.base_url}/scoreboardv2"
@@ -69,18 +92,34 @@ class NBAStatsService:
             response.raise_for_status()
             data = response.json()
             
+            # Get team name mapping
+            team_mapping = self.get_all_teams()
+            
             if 'resultSets' in data:
                 game_header = data['resultSets'][0]
                 games = []
                 
                 for game in game_header['rowSet']:
+                    home_team_id = game[6]
+                    away_team_id = game[7]
+                    
+                    # Skip unscheduled games
+                    if home_team_id is None or away_team_id is None or home_team_id == 0 or away_team_id == 0:
+                        continue
+                    
+                    home_team_name = team_mapping.get(home_team_id)
+                    away_team_name = team_mapping.get(away_team_id)
+                    
+                    if not home_team_name or not away_team_name:
+                        continue
+                    
                     games.append({
                         'game_id': game[2],
                         'game_date': game[0],
-                        'home_team_id': game[6],
-                        'away_team_id': game[7],
-                        'home_team_name': game[6],
-                        'away_team_name': game[7],
+                        'home_team_id': home_team_id,
+                        'away_team_id': away_team_id,
+                        'home_team_name': home_team_name,
+                        'away_team_name': away_team_name,
                         'game_status': game[4]
                     })
                 
@@ -93,10 +132,14 @@ class NBAStatsService:
             return []
     
     def fetch_schedule(self, days_ahead: int = 14) -> List[Dict[str, Any]]:
-        """Fetch upcoming games for next N days"""
-        all_games = []
+        """Fetch upcoming games - uses static file if enabled"""
         
-        # Get team name mapping once
+        # If using static file, load from there
+        if self.use_static_file:
+            return self.load_schedule_from_file()
+        
+        # Otherwise fetch from API
+        all_games = []
         team_mapping = self.get_all_teams()
         
         for day_offset in range(days_ahead):
@@ -122,14 +165,27 @@ class NBAStatsService:
                         home_team_id = game[6]
                         away_team_id = game[7]
                         
+                        # Skip unscheduled games
+                        if home_team_id is None or away_team_id is None or home_team_id == 0 or away_team_id == 0:
+                            print(f"  Skipping unscheduled game {game[2]} on {game[0][:10]}")
+                            continue
+                        
+                        home_team_name = team_mapping.get(home_team_id)
+                        away_team_name = team_mapping.get(away_team_id)
+                        
+                        if not home_team_name or not away_team_name:
+                            print(f"  Skipping game {game[2]} - unknown team IDs")
+                            continue
+                        
                         games_dict = {
                             'game_id': game[2],
                             'game_date': game[0],
                             'home_team_id': home_team_id,
                             'away_team_id': away_team_id,
-                            'home_team_name': team_mapping.get(home_team_id, f"Team {home_team_id}"),
-                            'away_team_name': team_mapping.get(away_team_id, f"Team {away_team_id}")
+                            'home_team_name': home_team_name,
+                            'away_team_name': away_team_name
                         }
+                        
                         all_games.append(games_dict)
                 
                 # Be nice to the API
@@ -199,9 +255,13 @@ class NBAStatsService:
             print(f"Error fetching roster for team {team_id}: {e}")
             return []
     
-    def calculate_projection(self, game_log: List[Any], stat_index: int) -> Optional[float]:
+    def calculate_projection(self, game_log: List[Any], stat_type: str) -> Optional[float]:
         """Calculate average from recent games"""
         if not game_log:
+            return None
+        
+        stat_index = self.STATS_INDICES.get(stat_type)
+        if stat_index is None:
             return None
         
         # Filter valid games and get the stat
@@ -232,11 +292,11 @@ class NBAStatsService:
         # Get rosters
         print(f"  Fetching home team roster...")
         home_roster = self.fetch_team_roster(home_team_id)
-        sleep(0.6)
+        sleep(0.5)
         
         print(f"  Fetching away team roster...")
         away_roster = self.fetch_team_roster(away_team_id)
-        sleep(0.6)
+        sleep(0.5)
         
         # Combine and limit to top 6 players per team (12 total)
         all_players = home_roster[:6] + away_roster[:6]
@@ -249,16 +309,15 @@ class NBAStatsService:
             
             # Fetch game log
             game_log = self.fetch_player_game_log(player_id)
-            sleep(0.6)  # Rate limiting
+            sleep(0.5)  # Rate limiting
             
             if not game_log:
                 continue
             
-            # Calculate projections
-            # NBA Stats API game log indices: PTS=24, REB=18, AST=19
-            points_proj = self.calculate_projection(game_log, 24)
-            rebounds_proj = self.calculate_projection(game_log, 18)
-            assists_proj = self.calculate_projection(game_log, 19)
+            # Calculate projections using the stat type names
+            points_proj = self.calculate_projection(game_log, 'points')
+            rebounds_proj = self.calculate_projection(game_log, 'rebounds')
+            assists_proj = self.calculate_projection(game_log, 'assists')
             
             if points_proj and points_proj > 5:
                 projections.append({
@@ -304,4 +363,5 @@ class NBAStatsService:
             'commence_time': game_date
         }
 
-stats_service = NBAStatsService()
+# For class project: use static file
+stats_service = NBAStatsService(use_static_file=True, static_file_path="schedule.json")

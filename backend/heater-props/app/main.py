@@ -9,6 +9,9 @@ from app.database import get_db, engine, Base
 from app import models, schemas, crud
 from app.odds_service import stats_service
 from app.picks_routes import router as picks_router
+from app.cache_manager import cache_manager
+from app.projection_service import projection_service
+from app.grading_routes import router as grading_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -24,8 +27,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include picks router
+# Include picks and grading router
 app.include_router(picks_router)
+app.include_router(grading_router)
 
 @app.get("/")
 def root():
@@ -69,20 +73,43 @@ def get_player_props(
     return {"player_name": player_name, "props": props}
 
 @app.get("/api/update-odds")
-def update_odds(db: Session = Depends(get_db)):
+def update_odds(
+    db: Session = Depends(get_db),
+    force_refresh: bool = False,
+    use_cached_projections: bool = True
+):
     """
-    Fetch latest games and generate projections
+    Fetch latest games and load pre-generated projections
+    
+    Set use_cached_projections=False to generate projections live (slow)
     """
     try:
-        # Fetch upcoming games
-        print("Fetching upcoming games...")
-        games_data = stats_service.fetch_schedule(days_ahead=14)
+        cache_key = "games_dec_5_12"
+        used_cache = False
+        
+        # Check cache first (unless force_refresh is True)
+        if not force_refresh:
+            cached_games = cache_manager.get(cache_key)
+            if cached_games is not None:
+                print("Using cached game data")
+                games_data = cached_games
+                used_cache = True
+            else:
+                print("Cache miss - loading from static file...")
+                # Load from static file
+                games_data = stats_service.fetch_schedule()
+                cache_manager.set(cache_key, games_data)
+        else:
+            print("Force refresh requested - loading from static file...")
+            games_data = stats_service.fetch_schedule()
+            cache_manager.set(cache_key, games_data)
         
         if not games_data:
             return {"message": "No games data received", "updated": 0}
         
         print(f"Found {len(games_data)} games")
         updated_count = 0
+        skipped_count = 0
         
         for game_data in games_data:
             # Parse game info
@@ -92,25 +119,46 @@ def update_odds(db: Session = Depends(get_db)):
             existing_game = crud.get_game_by_external_id(db, game_info['external_id'])
             
             if existing_game:
+                # If using cache and game already has projections, skip
+                if used_cache:
+                    existing_props = db.query(models.PlayerProp).filter(
+                        models.PlayerProp.game_id == existing_game.id
+                    ).count()
+                    
+                    if existing_props > 0:
+                        print(f"  Skipping {game_info['away_team']} @ {game_info['home_team']} (already has {existing_props} projections)")
+                        skipped_count += 1
+                        continue
+                
                 # Update existing game
                 existing_game.home_team = game_info['home_team']
                 existing_game.away_team = game_info['away_team']
                 existing_game.commence_time = game_info['commence_time']
                 existing_game.updated_at = datetime.utcnow()
                 
-                # Delete old props
+                # Delete old props (only if regenerating)
                 crud.delete_game_props(db, existing_game.id)
                 game = existing_game
             else:
                 # Create new game
                 game = crud.create_game(db, schemas.GameCreate(**game_info))
             
-            print(f"Generating projections for {game_info['away_team']} @ {game_info['home_team']}...")
+            print(f"Loading projections for {game_info['away_team']} @ {game_info['home_team']}...")
             
-            # Generate player projections
-            projections = stats_service.generate_projections_for_game(game_data)
-            
-            print(f"Generated {len(projections)} projections")
+            # Get projections - either from cache or generate live
+            if use_cached_projections:
+                # Load from pre-generated cache
+                projections = projection_service.get_projections_for_game(game_data['game_id'])
+                if projections:
+                    print(f"  ✓ Loaded {len(projections)} cached projections")
+                else:
+                    print(f"  ⚠ No cached projections found for this game")
+                    projections = []
+            else:
+                # Generate live (slow)
+                print(f"  Generating projections live (this will take a while)...")
+                projections = stats_service.generate_projections_for_game(game_data)
+                print(f"  ✓ Generated {len(projections)} projections")
             
             # Add projections to database
             for proj_data in projections:
@@ -122,12 +170,25 @@ def update_odds(db: Session = Depends(get_db)):
         return {
             "message": "Projections updated successfully",
             "updated": updated_count,
-            "timestamp": datetime.utcnow().isoformat()
+            "skipped": skipped_count,
+            "timestamp": datetime.utcnow().isoformat(),
+            "from_cache": used_cache,
+            "using_cached_projections": use_cached_projections
         }
     
     except Exception as e:
         print(f"Error updating projections: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating projections: {str(e)}")
+
+@app.get("/api/cache/status")
+def get_cache_status():
+    """Get cache status and information"""
+    cache_info = cache_manager.get_cache_info()
+    return {
+        "cache_info": cache_info,
+        "cache_duration_hours": 12,
+        "projections_loaded": len(projection_service.get_all_projections())
+    }
 
 @app.get("/api/health")
 def health_check():

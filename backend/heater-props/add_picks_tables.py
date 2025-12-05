@@ -3,9 +3,7 @@ import sqlite3
 
 # Direct connection to your database file
 # Replace 'database.db' with your actual database filename
-DATABASE_FILE = 'heater.db'  # or whatever your database is called
-
-print("Adding picks tracking tables...")
+DATABASE_FILE = 'heater-props-new.db'
 
 # Connect directly
 conn = sqlite3.connect(DATABASE_FILE)

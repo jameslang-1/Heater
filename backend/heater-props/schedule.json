@@ -1,0 +1,354 @@
+[
+  {
+    "game_id": "0022500338",
+    "game_date": "2025-12-05T19:30:00",
+    "home_team_id": 1610612738,
+    "away_team_id": 1610612747,
+    "home_team_name": "Boston Celtics",
+    "away_team_name": "Los Angeles Lakers"
+  },
+  {
+    "game_id": "0022500339",
+    "game_date": "2025-12-05T19:00:00",
+    "home_team_id": 1610612753,
+    "away_team_id": 1610612748,
+    "home_team_name": "Orlando Magic",
+    "away_team_name": "Miami Heat"
+  },
+  {
+    "game_id": "0022500340",
+    "game_date": "2025-12-05T19:30:00",
+    "home_team_id": 1610612737,
+    "away_team_id": 1610612743,
+    "home_team_name": "Atlanta Hawks",
+    "away_team_name": "Denver Nuggets"
+  },
+  {
+    "game_id": "0022500341",
+    "game_date": "2025-12-05T19:30:00",
+    "home_team_id": 1610612739,
+    "away_team_id": 1610612759,
+    "home_team_name": "Cleveland Cavaliers",
+    "away_team_name": "San Antonio Spurs"
+  },
+  {
+    "game_id": "0022500342",
+    "game_date": "2025-12-05T19:00:00",
+    "home_team_id": 1610612765,
+    "away_team_id": 1610612757,
+    "home_team_name": "Detroit Pistons",
+    "away_team_name": "Portland Trail Blazers"
+  },
+  {
+    "game_id": "0022500343",
+    "game_date": "2025-12-05T19:30:00",
+    "home_team_id": 1610612752,
+    "away_team_id": 1610612762,
+    "home_team_name": "New York Knicks",
+    "away_team_name": "Utah Jazz"
+  },
+  {
+    "game_id": "0022500344",
+    "game_date": "2025-12-05T19:30:00",
+    "home_team_id": 1610612761,
+    "away_team_id": 1610612766,
+    "home_team_name": "Toronto Raptors",
+    "away_team_name": "Charlotte Hornets"
+  },
+  {
+    "game_id": "0022500345",
+    "game_date": "2025-12-05T20:00:00",
+    "home_team_id": 1610612741,
+    "away_team_id": 1610612754,
+    "home_team_name": "Chicago Bulls",
+    "away_team_name": "Indiana Pacers"
+  },
+  {
+    "game_id": "0022500346",
+    "game_date": "2025-12-05T20:00:00",
+    "home_team_id": 1610612745,
+    "away_team_id": 1610612756,
+    "home_team_name": "Houston Rockets",
+    "away_team_name": "Phoenix Suns"
+  },
+  {
+    "game_id": "0022500347",
+    "game_date": "2025-12-05T20:00:00",
+    "home_team_id": 1610612763,
+    "away_team_id": 1610612746,
+    "home_team_name": "Memphis Grizzlies",
+    "away_team_name": "LA Clippers"
+  },
+  {
+    "game_id": "0022500348",
+    "game_date": "2025-12-05T20:00:00",
+    "home_team_id": 1610612749,
+    "away_team_id": 1610612755,
+    "home_team_name": "Milwaukee Bucks",
+    "away_team_name": "Philadelphia 76ers"
+  },
+  {
+    "game_id": "0022500349",
+    "game_date": "2025-12-05T20:00:00",
+    "home_team_id": 1610612760,
+    "away_team_id": 1610612742,
+    "home_team_name": "Oklahoma City Thunder",
+    "away_team_name": "Dallas Mavericks"
+  },
+  {
+    "game_id": "0022500350",
+    "game_date": "2025-12-06T19:30:00",
+    "home_team_id": 1610612751,
+    "away_team_id": 1610612740,
+    "home_team_name": "Brooklyn Nets",
+    "away_team_name": "New Orleans Pelicans"
+  },
+  {
+    "game_id": "0022500351",
+    "game_date": "2025-12-06T19:00:00",
+    "home_team_id": 1610612764,
+    "away_team_id": 1610612737,
+    "home_team_name": "Washington Wizards",
+    "away_team_name": "Atlanta Hawks"
+  },
+  {
+    "game_id": "0022500352",
+    "game_date": "2025-12-06T19:30:00",
+    "home_team_id": 1610612739,
+    "away_team_id": 1610612744,
+    "home_team_name": "Cleveland Cavaliers",
+    "away_team_name": "Golden State Warriors"
+  },
+  {
+    "game_id": "0022500353",
+    "game_date": "2025-12-06T19:00:00",
+    "home_team_id": 1610612765,
+    "away_team_id": 1610612749,
+    "home_team_name": "Detroit Pistons",
+    "away_team_name": "Milwaukee Bucks"
+  },
+  {
+    "game_id": "0022500354",
+    "game_date": "2025-12-06T19:30:00",
+    "home_team_id": 1610612748,
+    "away_team_id": 1610612758,
+    "home_team_name": "Miami Heat",
+    "away_team_name": "Sacramento Kings"
+  },
+  {
+    "game_id": "0022500355",
+    "game_date": "2025-12-06T20:00:00",
+    "home_team_id": 1610612750,
+    "away_team_id": 1610612746,
+    "home_team_name": "Minnesota Timberwolves",
+    "away_team_name": "LA Clippers"
+  },
+  {
+    "game_id": "0022500356",
+    "game_date": "2025-12-06T20:30:00",
+    "home_team_id": 1610612742,
+    "away_team_id": 1610612745,
+    "home_team_name": "Dallas Mavericks",
+    "away_team_name": "Houston Rockets"
+  },
+  {
+    "game_id": "0022500357",
+    "game_date": "2025-12-07T13:00:00",
+    "home_team_id": 1610612752,
+    "away_team_id": 1610612753,
+    "home_team_name": "New York Knicks",
+    "away_team_name": "Orlando Magic"
+  },
+  {
+    "game_id": "0022500358",
+    "game_date": "2025-12-07T15:00:00",
+    "home_team_id": 1610612761,
+    "away_team_id": 1610612738,
+    "home_team_name": "Toronto Raptors",
+    "away_team_name": "Boston Celtics"
+  },
+  {
+    "game_id": "0022500359",
+    "game_date": "2025-12-07T18:00:00",
+    "home_team_id": 1610612766,
+    "away_team_id": 1610612743,
+    "home_team_name": "Charlotte Hornets",
+    "away_team_name": "Denver Nuggets"
+  },
+  {
+    "game_id": "0022500360",
+    "game_date": "2025-12-07T20:00:00",
+    "home_team_id": 1610612763,
+    "away_team_id": 1610612757,
+    "home_team_name": "Memphis Grizzlies",
+    "away_team_name": "Portland Trail Blazers"
+  },
+  {
+    "game_id": "0022500361",
+    "game_date": "2025-12-07T20:30:00",
+    "home_team_id": 1610612741,
+    "away_team_id": 1610612744,
+    "home_team_name": "Chicago Bulls",
+    "away_team_name": "Golden State Warriors"
+  },
+  {
+    "game_id": "0022500362",
+    "game_date": "2025-12-07T19:00:00",
+    "home_team_id": 1610612755,
+    "away_team_id": 1610612747,
+    "home_team_name": "Philadelphia 76ers",
+    "away_team_name": "Los Angeles Lakers"
+  },
+  {
+    "game_id": "0022500363",
+    "game_date": "2025-12-07T21:00:00",
+    "home_team_id": 1610612762,
+    "away_team_id": 1610612760,
+    "home_team_name": "Utah Jazz",
+    "away_team_name": "Oklahoma City Thunder"
+  },
+  {
+    "game_id": "0022500364",
+    "game_date": "2025-12-08T19:00:00",
+    "home_team_id": 1610612754,
+    "away_team_id": 1610612758,
+    "home_team_name": "Indiana Pacers",
+    "away_team_name": "Sacramento Kings"
+  },
+  {
+    "game_id": "0022500365",
+    "game_date": "2025-12-08T20:00:00",
+    "home_team_id": 1610612750,
+    "away_team_id": 1610612756,
+    "home_team_name": "Minnesota Timberwolves",
+    "away_team_name": "Phoenix Suns"
+  },
+  {
+    "game_id": "0022500366",
+    "game_date": "2025-12-08T20:00:00",
+    "home_team_id": 1610612740,
+    "away_team_id": 1610612759,
+    "home_team_name": "New Orleans Pelicans",
+    "away_team_name": "San Antonio Spurs"
+  },
+  {
+    "game_id": "0062500009",
+    "game_date": "2025-12-09T18:00:00",
+    "home_team_id": 1610612753,
+    "away_team_id": 1610612748,
+    "home_team_name": "Orlando Magic",
+    "away_team_name": "Miami Heat"
+  },
+  {
+    "game_id": "0062500010",
+    "game_date": "2025-12-09T20:30:00",
+    "home_team_id": 1610612761,
+    "away_team_id": 1610612752,
+    "home_team_name": "Toronto Raptors",
+    "away_team_name": "New York Knicks"
+  },
+  {
+    "game_id": "0062500011",
+    "game_date": "2025-12-10T19:30:00",
+    "home_team_id": 1610612760,
+    "away_team_id": 1610612756,
+    "home_team_name": "Oklahoma City Thunder",
+    "away_team_name": "Phoenix Suns"
+  },
+  {
+    "game_id": "0062500012",
+    "game_date": "2025-12-10T22:00:00",
+    "home_team_id": 1610612747,
+    "away_team_id": 1610612759,
+    "home_team_name": "Los Angeles Lakers",
+    "away_team_name": "San Antonio Spurs"
+  },
+  {
+    "game_id": "0022500400",
+    "game_date": "2025-12-11T20:00:00",
+    "home_team_id": 1610612745,
+    "away_team_id": 1610612746,
+    "home_team_name": "Houston Rockets",
+    "away_team_name": "LA Clippers"
+  },
+  {
+    "game_id": "0022500401",
+    "game_date": "2025-12-11T20:00:00",
+    "home_team_id": 1610612749,
+    "away_team_id": 1610612738,
+    "home_team_name": "Milwaukee Bucks",
+    "away_team_name": "Boston Celtics"
+  },
+  {
+    "game_id": "0022500402",
+    "game_date": "2025-12-11T20:00:00",
+    "home_team_id": 1610612740,
+    "away_team_id": 1610612757,
+    "home_team_name": "New Orleans Pelicans",
+    "away_team_name": "Portland Trail Blazers"
+  },
+  {
+    "game_id": "0022500403",
+    "game_date": "2025-12-11T22:00:00",
+    "home_team_id": 1610612758,
+    "away_team_id": 1610612743,
+    "home_team_name": "Sacramento Kings",
+    "away_team_name": "Denver Nuggets"
+  },
+  {
+    "game_id": "0022500410",
+    "game_date": "2025-12-12T19:00:00",
+    "home_team_id": 1610612766,
+    "away_team_id": 1610612741,
+    "home_team_name": "Charlotte Hornets",
+    "away_team_name": "Chicago Bulls"
+  },
+  {
+    "game_id": "0022500411",
+    "game_date": "2025-12-12T19:00:00",
+    "home_team_id": 1610612765,
+    "away_team_id": 1610612737,
+    "home_team_name": "Detroit Pistons",
+    "away_team_name": "Atlanta Hawks"
+  },
+  {
+    "game_id": "0022500412",
+    "game_date": "2025-12-12T19:00:00",
+    "home_team_id": 1610612755,
+    "away_team_id": 1610612754,
+    "home_team_name": "Philadelphia 76ers",
+    "away_team_name": "Indiana Pacers"
+  },
+  {
+    "game_id": "0022500413",
+    "game_date": "2025-12-12T19:00:00",
+    "home_team_id": 1610612764,
+    "away_team_id": 1610612739,
+    "home_team_name": "Washington Wizards",
+    "away_team_name": "Cleveland Cavaliers"
+  },
+  {
+    "game_id": "0022500414",
+    "game_date": "2025-12-12T20:00:00",
+    "home_team_id": 1610612763,
+    "away_team_id": 1610612762,
+    "home_team_name": "Memphis Grizzlies",
+    "away_team_name": "Utah Jazz"
+  },
+  {
+    "game_id": "0022500415",
+    "game_date": "2025-12-12T20:30:00",
+    "home_team_id": 1610612742,
+    "away_team_id": 1610612751,
+    "home_team_name": "Dallas Mavericks",
+    "away_team_name": "Brooklyn Nets"
+  },
+  {
+    "game_id": "0022500416",
+    "game_date": "2025-12-12T22:00:00",
+    "home_team_id": 1610612744,
+    "away_team_id": 1610612750,
+    "home_team_name": "Golden State Warriors",
+    "away_team_name": "Minnesota Timberwolves"
+  }
+]

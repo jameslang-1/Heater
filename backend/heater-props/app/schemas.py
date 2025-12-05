@@ -45,3 +45,55 @@ class GameResponse(GameBase):
 class GameListResponse(BaseModel):
     games: List[GameResponse]
     total: int
+
+
+# PICK SCHEMAS - NEW
+class PickBase(BaseModel):
+    player_prop_id: int
+    selection: str  # 'over' or 'under'
+    line: float
+    user_id: Optional[int] = None
+    confidence: Optional[str] = None
+
+class PickCreate(PickBase):
+    pass
+
+class PickResponse(PickBase):
+    id: int
+    created_at: datetime
+    
+    # Grading fields
+    result: Optional[str] = None  # 'won', 'lost', 'push'
+    actual_value: Optional[float] = None
+    graded_at: Optional[datetime] = None
+    
+    # Include related prop info
+    player_prop: Optional[PlayerPropResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class PickListResponse(BaseModel):
+    picks: List[PickResponse]
+    total: int
+
+
+class UserRecordResponse(BaseModel):
+    user_id: int
+    record: dict  # {'won': int, 'lost': int, 'push': int, 'total': int}
+    win_percentage: float
+    pending: int
+
+
+class LeaderboardEntry(BaseModel):
+    user_id: int
+    won: int
+    lost: int
+    push: int
+    total: int
+    win_percentage: float
+
+
+class LeaderboardResponse(BaseModel):
+    leaderboard: List[LeaderboardEntry]
