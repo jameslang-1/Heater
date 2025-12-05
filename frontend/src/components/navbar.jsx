@@ -25,28 +25,22 @@ export default function Navbar() {
       </div>
 
       {/* Navigation Links - Center */}
-      <div className="flex items-center space-x-1">
+      <div className="flex items-center space-x-2">
         <Link 
           href="/picks" 
-          className="text-white text-lg font-bold hover:bg-white hover:text-black px-6 py-3 transition-all tracking-wide"
+          className="text-white text-lg font-bold hover:bg-white hover:text-black px-8 py-3 transition-all tracking-wide"
         >
           MAKE PICKS
         </Link>
         <Link 
           href="/leaderboard" 
-          className="text-white text-lg font-bold hover:bg-white hover:text-black px-6 py-3 transition-all tracking-wide"
+          className="text-white text-lg font-bold hover:bg-white hover:text-black px-8 py-3 transition-all tracking-wide"
         >
           LEADERBOARD
         </Link>
         <Link 
-          href="/leagues" 
-          className="text-white text-lg font-bold hover:bg-white hover:text-black px-6 py-3 transition-all tracking-wide"
-        >
-          LEAGUES
-        </Link>
-        <Link 
           href="/history" 
-          className="text-white text-lg font-bold hover:bg-white hover:text-black px-6 py-3 transition-all tracking-wide"
+          className="text-white text-lg font-bold hover:bg-white hover:text-black px-8 py-3 transition-all tracking-wide"
         >
           HISTORY
         </Link>
