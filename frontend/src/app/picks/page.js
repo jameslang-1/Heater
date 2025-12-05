@@ -3,14 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { fetchGames } from '@/services/api';
+import { savePick, deletePick, checkUserPicks, getActivePicks } from '@/services/picksApi';
 
 const PredictionsPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [expandedGame, setExpandedGame] = useState(null);
-  const [predictions, setPredictions] = useState({});
+  const [predictions, setPredictions] = useState({}); // Currently selected (not yet saved)
+  const [savedPicks, setSavedPicks] = useState({}); // Actually saved picks
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [saveMessage, setSaveMessage] = useState(null);
+  const [totalSavedPicks, setTotalSavedPicks] = useState(0);
+  const [pendingChanges, setPendingChanges] = useState(false);
+  const MAX_PICKS = 10;
 
   // Fetch games from backend
   useEffect(() => {
@@ -32,7 +38,52 @@ const PredictionsPage = () => {
     };
 
     loadGames();
+    loadTotalPicks();
   }, []);
+
+  // Load total picks count
+  const loadTotalPicks = async () => {
+    try {
+      const picks = await getActivePicks();
+      setTotalSavedPicks(picks.length);
+      
+      // Build saved picks map
+      const savedMap = {};
+      picks.forEach(pick => {
+        const key = `${pick.player_name}-${pick.prop_type}`;
+        savedMap[key] = pick.prediction;
+      });
+      setSavedPicks(savedMap);
+      setPredictions(savedMap); // Initialize predictions with saved picks
+    } catch (err) {
+      console.error('Error loading total picks:', err);
+    }
+  };
+
+  // Load user's saved picks when expanding a game
+  useEffect(() => {
+    if (expandedGame) {
+      loadUserPicksForGame(expandedGame);
+    }
+  }, [expandedGame]);
+
+  const loadUserPicksForGame = async (gameId) => {
+    try {
+      const data = await checkUserPicks(String(gameId));
+      
+      // Update both predictions and saved picks to show what's saved
+      setSavedPicks(prev => ({
+        ...prev,
+        ...data.picks
+      }));
+      setPredictions(prev => ({
+        ...prev,
+        ...data.picks
+      }));
+    } catch (err) {
+      console.error('Error loading user picks:', err);
+    }
+  };
 
   // Transform backend data structure to match frontend
   const transformBackendData = (backendGames) => {
@@ -45,7 +96,7 @@ const PredictionsPage = () => {
           playerMap[prop.player_name] = {
             id: prop.id,
             name: prop.player_name,
-            team: '', // Backend doesn't have team per player, could infer from game
+            team: '',
             props: {}
           };
         }
@@ -55,15 +106,16 @@ const PredictionsPage = () => {
 
       return {
         id: game.id,
+        external_id: game.external_id || String(game.id),
         homeTeam: {
           name: game.home_team,
           abbreviation: getTeamAbbreviation(game.home_team),
-          logo: getTeamLogo(game.home_team)  // Changed from getTeamEmoji
+          logo: getTeamLogo(game.home_team)
         },
         awayTeam: {
           name: game.away_team,
           abbreviation: getTeamAbbreviation(game.away_team),
-          logo: getTeamLogo(game.away_team)  // Changed from getTeamEmoji
+          logo: getTeamLogo(game.away_team)
         },
         time: formatGameTime(game.commence_time),
         date: new Date(game.commence_time),
@@ -110,42 +162,42 @@ const PredictionsPage = () => {
     return abbrevMap[teamName] || 'NBA';
   };
 
-const getTeamLogo = (teamName) => {
-  const logoMap = {
-    'Atlanta Hawks': 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg',
-    'Boston Celtics': 'https://cdn.nba.com/logos/nba/1610612738/primary/L/logo.svg',
-    'Brooklyn Nets': 'https://cdn.nba.com/logos/nba/1610612751/primary/L/logo.svg',
-    'Charlotte Hornets': 'https://cdn.nba.com/logos/nba/1610612766/primary/L/logo.svg',
-    'Chicago Bulls': 'https://cdn.nba.com/logos/nba/1610612741/primary/L/logo.svg',
-    'Cleveland Cavaliers': 'https://cdn.nba.com/logos/nba/1610612739/primary/L/logo.svg',
-    'Dallas Mavericks': 'https://cdn.nba.com/logos/nba/1610612742/primary/L/logo.svg',
-    'Denver Nuggets': 'https://cdn.nba.com/logos/nba/1610612743/primary/L/logo.svg',
-    'Detroit Pistons': 'https://cdn.nba.com/logos/nba/1610612765/primary/L/logo.svg',
-    'Golden State Warriors': 'https://cdn.nba.com/logos/nba/1610612744/primary/L/logo.svg',
-    'Houston Rockets': 'https://cdn.nba.com/logos/nba/1610612745/primary/L/logo.svg',
-    'Indiana Pacers': 'https://cdn.nba.com/logos/nba/1610612754/primary/L/logo.svg',
-    'LA Clippers': 'https://cdn.nba.com/logos/nba/1610612746/primary/L/logo.svg',
-    'Los Angeles Lakers': 'https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg',
-    'Memphis Grizzlies': 'https://cdn.nba.com/logos/nba/1610612763/primary/L/logo.svg',
-    'Miami Heat': 'https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg',
-    'Milwaukee Bucks': 'https://cdn.nba.com/logos/nba/1610612749/primary/L/logo.svg',
-    'Minnesota Timberwolves': 'https://cdn.nba.com/logos/nba/1610612750/primary/L/logo.svg',
-    'New Orleans Pelicans': 'https://cdn.nba.com/logos/nba/1610612740/primary/L/logo.svg',
-    'New York Knicks': 'https://cdn.nba.com/logos/nba/1610612752/primary/L/logo.svg',
-    'Oklahoma City Thunder': 'https://cdn.nba.com/logos/nba/1610612760/primary/L/logo.svg',
-    'Orlando Magic': 'https://cdn.nba.com/logos/nba/1610612753/primary/L/logo.svg',
-    'Philadelphia 76ers': 'https://cdn.nba.com/logos/nba/1610612755/primary/L/logo.svg',
-    'Phoenix Suns': 'https://cdn.nba.com/logos/nba/1610612756/primary/L/logo.svg',
-    'Portland Trail Blazers': 'https://cdn.nba.com/logos/nba/1610612757/primary/L/logo.svg',
-    'Sacramento Kings': 'https://cdn.nba.com/logos/nba/1610612758/primary/L/logo.svg',
-    'San Antonio Spurs': 'https://cdn.nba.com/logos/nba/1610612759/primary/L/logo.svg',
-    'Toronto Raptors': 'https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg',
-    'Utah Jazz': 'https://cdn.nba.com/logos/nba/1610612762/primary/L/logo.svg',
-    'Washington Wizards': 'https://cdn.nba.com/logos/nba/1610612764/primary/L/logo.svg'
+  const getTeamLogo = (teamName) => {
+    const logoMap = {
+      'Atlanta Hawks': 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg',
+      'Boston Celtics': 'https://cdn.nba.com/logos/nba/1610612738/primary/L/logo.svg',
+      'Brooklyn Nets': 'https://cdn.nba.com/logos/nba/1610612751/primary/L/logo.svg',
+      'Charlotte Hornets': 'https://cdn.nba.com/logos/nba/1610612766/primary/L/logo.svg',
+      'Chicago Bulls': 'https://cdn.nba.com/logos/nba/1610612741/primary/L/logo.svg',
+      'Cleveland Cavaliers': 'https://cdn.nba.com/logos/nba/1610612739/primary/L/logo.svg',
+      'Dallas Mavericks': 'https://cdn.nba.com/logos/nba/1610612742/primary/L/logo.svg',
+      'Denver Nuggets': 'https://cdn.nba.com/logos/nba/1610612743/primary/L/logo.svg',
+      'Detroit Pistons': 'https://cdn.nba.com/logos/nba/1610612765/primary/L/logo.svg',
+      'Golden State Warriors': 'https://cdn.nba.com/logos/nba/1610612744/primary/L/logo.svg',
+      'Houston Rockets': 'https://cdn.nba.com/logos/nba/1610612745/primary/L/logo.svg',
+      'Indiana Pacers': 'https://cdn.nba.com/logos/nba/1610612754/primary/L/logo.svg',
+      'LA Clippers': 'https://cdn.nba.com/logos/nba/1610612746/primary/L/logo.svg',
+      'Los Angeles Lakers': 'https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg',
+      'Memphis Grizzlies': 'https://cdn.nba.com/logos/nba/1610612763/primary/L/logo.svg',
+      'Miami Heat': 'https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg',
+      'Milwaukee Bucks': 'https://cdn.nba.com/logos/nba/1610612749/primary/L/logo.svg',
+      'Minnesota Timberwolves': 'https://cdn.nba.com/logos/nba/1610612750/primary/L/logo.svg',
+      'New Orleans Pelicans': 'https://cdn.nba.com/logos/nba/1610612740/primary/L/logo.svg',
+      'New York Knicks': 'https://cdn.nba.com/logos/nba/1610612752/primary/L/logo.svg',
+      'Oklahoma City Thunder': 'https://cdn.nba.com/logos/nba/1610612760/primary/L/logo.svg',
+      'Orlando Magic': 'https://cdn.nba.com/logos/nba/1610612753/primary/L/logo.svg',
+      'Philadelphia 76ers': 'https://cdn.nba.com/logos/nba/1610612755/primary/L/logo.svg',
+      'Phoenix Suns': 'https://cdn.nba.com/logos/nba/1610612756/primary/L/logo.svg',
+      'Portland Trail Blazers': 'https://cdn.nba.com/logos/nba/1610612757/primary/L/logo.svg',
+      'Sacramento Kings': 'https://cdn.nba.com/logos/nba/1610612758/primary/L/logo.svg',
+      'San Antonio Spurs': 'https://cdn.nba.com/logos/nba/1610612759/primary/L/logo.svg',
+      'Toronto Raptors': 'https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg',
+      'Utah Jazz': 'https://cdn.nba.com/logos/nba/1610612762/primary/L/logo.svg',
+      'Washington Wizards': 'https://cdn.nba.com/logos/nba/1610612764/primary/L/logo.svg'
+    };
+    
+    return logoMap[teamName] || 'https://cdn.nba.com/logos/leagues/logo-nba.svg';
   };
-  
-  return logoMap[teamName] || 'https://cdn.nba.com/logos/leagues/logo-nba.svg';
-};
 
   // Format game time
   const formatGameTime = (dateString) => {
@@ -168,14 +220,12 @@ const getTeamLogo = (teamName) => {
     return 'upcoming';
   };
 
-  // Generate dates for today through end of week
-  const getDatesForWeek = () => {
+  // Generate dates for next 7 days (changed from "rest of week")
+  const getNext7Days = () => {
     const dates = [];
     const today = new Date();
-    const dayOfWeek = today.getDay();
-    const daysUntilSunday = 7 - dayOfWeek;
     
-    for (let i = 0; i <= daysUntilSunday; i++) {
+    for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       dates.push(date);
@@ -211,12 +261,100 @@ const getTeamLogo = (teamName) => {
     setExpandedGame(expandedGame === gameId ? null : gameId);
   };
 
-  const handlePrediction = (playerId, prop, choice) => {
-    const key = `${playerId}-${prop}`;
+  const handlePrediction = (game, player, prop, choice) => {
+    const key = `${player.name}-${prop}`;
+    const currentPrediction = predictions[key];
+    const savedPrediction = savedPicks[key];
+    
+    // Count how many picks would be saved if we submitted now
+    const currentSelections = Object.values(predictions).filter(v => v !== null).length;
+    const wouldAdd = !currentPrediction && choice;
+    
+    // Check if we're adding a new pick and would exceed limit
+    if (wouldAdd && currentSelections >= MAX_PICKS) {
+      showSaveMessage(`Maximum ${MAX_PICKS} picks allowed!`, true);
+      return;
+    }
+    
+    // Toggle off if clicking same choice
+    const newPrediction = currentPrediction === choice ? null : choice;
+    
+    // Update UI immediately
     setPredictions(prev => ({
       ...prev,
-      [key]: prev[key] === choice ? null : choice
+      [key]: newPrediction
     }));
+    
+    // Check if there are pending changes
+    const hasChanges = newPrediction !== savedPrediction;
+    setPendingChanges(hasChanges || Object.keys(predictions).some(k => {
+      if (k === key) return hasChanges;
+      return predictions[k] !== savedPicks[k];
+    }));
+  };
+
+  const submitPicks = async () => {
+    try {
+      setLoading(true);
+      
+      // Find all changes
+      const allKeys = new Set([...Object.keys(predictions), ...Object.keys(savedPicks)]);
+      
+      for (const key of allKeys) {
+        const [playerName, propType] = key.split('-');
+        const currentPrediction = predictions[key];
+        const savedPrediction = savedPicks[key];
+        
+        // Skip if no change
+        if (currentPrediction === savedPrediction) continue;
+        
+        // Find the game for this pick
+        const game = games.find(g => 
+          g.players.some(p => p.name === playerName)
+        );
+        
+        if (!game) continue;
+        
+        const player = game.players.find(p => p.name === playerName);
+        
+        if (currentPrediction === null || currentPrediction === undefined) {
+          // Delete pick
+          await deletePick({
+            player_name: playerName,
+            prop_type: propType,
+            game_id: String(game.external_id)
+          });
+        } else {
+          // Save pick
+          await savePick({
+            player_name: playerName,
+            prop_type: propType,
+            line: player.props[propType],
+            prediction: currentPrediction,
+            game_id: String(game.external_id),
+            home_team: game.homeTeam.name,
+            away_team: game.awayTeam.name,
+            game_date: game.date.toISOString()
+          });
+        }
+      }
+      
+      // Reload all picks
+      await loadTotalPicks();
+      setPendingChanges(false);
+      showSaveMessage('Picks submitted successfully!');
+      
+    } catch (err) {
+      console.error('Error submitting picks:', err);
+      showSaveMessage('Failed to submit picks', true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showSaveMessage = (message, isError = false) => {
+    setSaveMessage({ text: message, isError });
+    setTimeout(() => setSaveMessage(null), 2000);
   };
 
   const getStatusColor = (status) => {
@@ -258,12 +396,46 @@ const getTeamLogo = (teamName) => {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-[#0a0a0a] text-white p-6">
-        {/* Header */}
-        <h1 className="text-3xl font-bold mb-6">Predictions</h1>
+        {/* Save Message Toast */}
+        {saveMessage && (
+          <div className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+            saveMessage.isError ? 'bg-red-500' : 'bg-[#ff9f1c]'
+          } text-black font-semibold`}>
+            {saveMessage.text}
+          </div>
+        )}
 
-        {/* Date Picker */}
+        {/* Header with Pick Counter */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Predictions</h1>
+          <div className="flex items-center gap-3">
+            <div className={`px-4 py-2 rounded-lg font-semibold ${
+              Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS ? 'bg-red-500' : 'bg-[#1a1a1a]'
+            }`}>
+              {Object.values(predictions).filter(v => v !== null).length}/{MAX_PICKS} Selected
+            </div>
+            {pendingChanges && (
+              <div className="px-3 py-2 bg-yellow-600 rounded-lg text-sm font-semibold">
+                Unsaved Changes
+              </div>
+            )}
+            <button 
+              onClick={submitPicks}
+              disabled={!pendingChanges || loading}
+              className={`px-6 py-2 font-bold rounded-lg transition-colors ${
+                !pendingChanges || loading
+                  ? 'bg-[#2a2a2a] text-gray-600 cursor-not-allowed'
+                  : 'bg-[#0076B6] text-white hover:bg-[#005a8c]'
+              }`}
+            >
+              {loading ? 'Submitting...' : 'Submit Picks'}
+            </button>
+          </div>
+        </div>
+
+        {/* Date Picker - Next 7 Days */}
         <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {getDatesForWeek().map((date, index) => {
+          {getNext7Days().map((date, index) => {
             const formatted = formatDate(date);
             const selected = isSameDay(date, selectedDate);
             
@@ -353,9 +525,6 @@ const getTeamLogo = (teamName) => {
                           <span className="font-semibold">
                             {player.name}
                           </span>
-                          <span className="text-xs text-gray-400">
-                            {player.team || '---'}
-                          </span>
                         </div>
 
                         {/* Props */}
@@ -366,28 +535,36 @@ const getTeamLogo = (teamName) => {
                             <div className="text-sm font-bold text-[#ff9f1c] mb-2">
                               {player.props.points ?? '--'}
                             </div>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => handlePrediction(player.id, 'points', 'over')}
-                                className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
-                                  predictions[`${player.id}-points`] === 'over'
-                                    ? 'bg-[#ff9f1c] text-black'
-                                    : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
-                                }`}
-                              >
-                                Over
-                              </button>
-                              <button
-                                onClick={() => handlePrediction(player.id, 'points', 'under')}
-                                className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
-                                  predictions[`${player.id}-points`] === 'under'
-                                    ? 'bg-[#ff9f1c] text-black'
-                                    : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
-                                }`}
-                              >
-                                Under
-                              </button>
-                            </div>
+                            {player.props.points && (
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handlePrediction(game, player, 'points', 'over')}
+                                  disabled={Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-points`]}
+                                  className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
+                                    predictions[`${player.name}-points`] === 'over'
+                                      ? 'bg-[#ff9f1c] text-black'
+                                      : Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-points`]
+                                      ? 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed'
+                                      : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
+                                  }`}
+                                >
+                                  Over
+                                </button>
+                                <button
+                                  onClick={() => handlePrediction(game, player, 'points', 'under')}
+                                  disabled={Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-points`]}
+                                  className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
+                                    predictions[`${player.name}-points`] === 'under'
+                                      ? 'bg-[#ff9f1c] text-black'
+                                      : Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-points`]
+                                      ? 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed'
+                                      : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
+                                  }`}
+                                >
+                                  Under
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           {/* Rebounds */}
@@ -396,28 +573,36 @@ const getTeamLogo = (teamName) => {
                             <div className="text-sm font-bold text-[#ff9f1c] mb-2">
                               {player.props.rebounds ?? '--'}
                             </div>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => handlePrediction(player.id, 'rebounds', 'over')}
-                                className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
-                                  predictions[`${player.id}-rebounds`] === 'over'
-                                    ? 'bg-[#ff9f1c] text-black'
-                                    : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
-                                }`}
-                              >
-                                Over
-                              </button>
-                              <button
-                                onClick={() => handlePrediction(player.id, 'rebounds', 'under')}
-                                className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
-                                  predictions[`${player.id}-rebounds`] === 'under'
-                                    ? 'bg-[#ff9f1c] text-black'
-                                    : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
-                                }`}
-                              >
-                                Under
-                              </button>
-                            </div>
+                            {player.props.rebounds && (
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handlePrediction(game, player, 'rebounds', 'over')}
+                                  disabled={Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-rebounds`]}
+                                  className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
+                                    predictions[`${player.name}-rebounds`] === 'over'
+                                      ? 'bg-[#ff9f1c] text-black'
+                                      : Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-rebounds`]
+                                      ? 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed'
+                                      : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
+                                  }`}
+                                >
+                                  Over
+                                </button>
+                                <button
+                                  onClick={() => handlePrediction(game, player, 'rebounds', 'under')}
+                                  disabled={Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-rebounds`]}
+                                  className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
+                                    predictions[`${player.name}-rebounds`] === 'under'
+                                      ? 'bg-[#ff9f1c] text-black'
+                                      : Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-rebounds`]
+                                      ? 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed'
+                                      : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
+                                  }`}
+                                >
+                                  Under
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           {/* Assists */}
@@ -426,38 +611,41 @@ const getTeamLogo = (teamName) => {
                             <div className="text-sm font-bold text-[#ff9f1c] mb-2">
                               {player.props.assists ?? '--'}
                             </div>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => handlePrediction(player.id, 'assists', 'over')}
-                                className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
-                                  predictions[`${player.id}-assists`] === 'over'
-                                    ? 'bg-[#ff9f1c] text-black'
-                                    : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
-                                }`}
-                              >
-                                Over
-                              </button>
-                              <button
-                                onClick={() => handlePrediction(player.id, 'assists', 'under')}
-                                className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
-                                  predictions[`${player.id}-assists`] === 'under'
-                                    ? 'bg-[#ff9f1c] text-black'
-                                    : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
-                                }`}
-                              >
-                                Under
-                              </button>
-                            </div>
+                            {player.props.assists && (
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handlePrediction(game, player, 'assists', 'over')}
+                                  disabled={Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-assists`]}
+                                  className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
+                                    predictions[`${player.name}-assists`] === 'over'
+                                      ? 'bg-[#ff9f1c] text-black'
+                                      : Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-assists`]
+                                      ? 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed'
+                                      : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
+                                  }`}
+                                >
+                                  Over
+                                </button>
+                                <button
+                                  onClick={() => handlePrediction(game, player, 'assists', 'under')}
+                                  disabled={Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-assists`]}
+                                  className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
+                                    predictions[`${player.name}-assists`] === 'under'
+                                      ? 'bg-[#ff9f1c] text-black'
+                                      : Object.values(predictions).filter(v => v !== null).length >= MAX_PICKS && !predictions[`${player.name}-assists`]
+                                      ? 'bg-[#1a1a1a] text-gray-600 cursor-not-allowed'
+                                      : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
+                                  }`}
+                                >
+                                  Under
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-
-                  {/* Submit Button */}
-                  <button className="w-full mt-4 py-3 bg-[#ff9f1c] text-black font-bold rounded-lg hover:bg-[#e8900a] transition-colors">
-                    Submit Predictions
-                  </button>
                 </div>
               )}
             </div>
