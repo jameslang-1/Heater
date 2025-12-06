@@ -9,7 +9,7 @@ export default function HistoryPage() {
   const [history, setHistory] = useState([]);
   const [activePicks, setActivePicks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // 'all', 'win', 'loss', 'push'
+  const [filter, setFilter] = useState('all'); // 'all', 'won', 'lost', 'push'
   const [propFilter, setPropFilter] = useState('all'); // 'all', 'points', 'rebounds', 'assists'
   const [viewMode, setViewMode] = useState('active'); // 'active' or 'history'
 
@@ -52,12 +52,19 @@ export default function HistoryPage() {
 
   const getResultBadge = (result) => {
     const styles = {
-      win: 'bg-green-600',
-      loss: 'bg-red-600',
-      push: 'bg-gray-600',
+      won: 'bg-green-600',
+      lost: 'bg-red-600',
+      push: 'bg-blue-600',
       pending: 'bg-blue-600'
     };
     return styles[result] || 'bg-gray-600';
+  };
+
+  const getResultIcon = (result) => {
+    if (result === 'won') return '✓';
+    if (result === 'lost') return '✗';
+    if (result === 'push') return '―';
+    return '?';
   };
 
   const getStreakColor = (streak) => {
@@ -129,7 +136,7 @@ export default function HistoryPage() {
                           getResultBadge(result)
                         }`}
                       >
-                        {result === 'win' ? 'W' : result === 'loss' ? 'L' : 'P'}
+                        {result === 'won' ? 'W' : result === 'lost' ? 'L' : 'P'}
                       </div>
                     ))}
                   </div>
@@ -207,9 +214,9 @@ export default function HistoryPage() {
                     All
                   </button>
                   <button
-                    onClick={() => setFilter('win')}
+                    onClick={() => setFilter('won')}
                     className={`px-4 py-2 rounded font-semibold transition-colors ${
-                      filter === 'win' 
+                      filter === 'won' 
                         ? 'bg-green-600 text-white' 
                         : 'bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]'
                     }`}
@@ -217,9 +224,9 @@ export default function HistoryPage() {
                     Wins
                   </button>
                   <button
-                    onClick={() => setFilter('loss')}
+                    onClick={() => setFilter('lost')}
                     className={`px-4 py-2 rounded font-semibold transition-colors ${
-                      filter === 'loss' 
+                      filter === 'lost' 
                         ? 'bg-red-600 text-white' 
                         : 'bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]'
                     }`}
@@ -348,7 +355,7 @@ export default function HistoryPage() {
                         className="bg-[#0a0a0a] p-4 rounded flex items-center justify-between hover:bg-[#1a1a1a] transition-colors"
                       >
                         {/* Pending Badge */}
-                        <div className="w-16 h-16 rounded-full flex items-center justify-center bg-blue-600 text-white font-bold text-xl">
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center bg-blue-600 text-white font-bold text-3xl">
                           ⏳
                         </div>
 
@@ -361,19 +368,19 @@ export default function HistoryPage() {
                             </span>
                           </div>
                           <div className="text-gray-400 text-sm">
-                            {pick.away_team} @ {pick.home_team}
+                            {pick.game?.away_team || pick.away_team} @ {pick.game?.home_team || pick.home_team}
                           </div>
                         </div>
 
                         {/* Pick Info */}
-                        <div className="flex items-center gap-6 text-center">
-                          <div>
-                            <div className="text-gray-400 text-xs">Line</div>
+                        <div className="flex items-center gap-8 text-center">
+                          <div className="w-20">
+                            <div className="text-gray-400 text-xs mb-1">Line</div>
                             <div className="text-white font-bold text-lg">{pick.line}</div>
                           </div>
 
-                          <div className="w-24">
-                            <div className="text-gray-400 text-xs">Pick</div>
+                          <div className="w-20">
+                            <div className="text-gray-400 text-xs mb-1">Pick</div>
                             <div className={`font-bold text-lg ${
                               pick.prediction === 'over' ? 'text-green-500' : 'text-red-500'
                             }`}>
@@ -381,8 +388,8 @@ export default function HistoryPage() {
                             </div>
                           </div>
 
-                          <div>
-                            <div className="text-gray-400 text-xs">Game Time</div>
+                          <div className="w-32">
+                            <div className="text-gray-400 text-xs mb-1">Game Time</div>
                             <div className="text-[#ff9f1c] text-sm">
                               {formatDate(pick.game_date)}
                             </div>
@@ -413,10 +420,10 @@ export default function HistoryPage() {
                         className="bg-[#0a0a0a] p-4 rounded flex items-center justify-between hover:bg-[#1a1a1a] transition-colors"
                       >
                         {/* Result Badge */}
-                        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl ${
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-3xl ${
                           getResultBadge(pick.result)
                         }`}>
-                          {pick.result === 'win' ? '✓' : pick.result === 'loss' ? '✗' : '―'}
+                          {getResultIcon(pick.result)}
                         </div>
 
                         {/* Pick Details */}
@@ -428,19 +435,19 @@ export default function HistoryPage() {
                             </span>
                           </div>
                           <div className="text-gray-400 text-sm">
-                            {pick.away_team} @ {pick.home_team}
+                            {pick.game?.away_team || pick.away_team} @ {pick.game?.home_team || pick.home_team}
                           </div>
                         </div>
 
                         {/* Pick Info */}
-                        <div className="flex items-center gap-6 text-center">
-                          <div>
-                            <div className="text-gray-400 text-xs">Line</div>
+                        <div className="flex items-center gap-8 text-center">
+                          <div className="w-20">
+                            <div className="text-gray-400 text-xs mb-1">Line</div>
                             <div className="text-white font-bold text-lg">{pick.line}</div>
                           </div>
 
-                          <div>
-                            <div className="text-gray-400 text-xs">Pick</div>
+                          <div className="w-20">
+                            <div className="text-gray-400 text-xs mb-1">Pick</div>
                             <div className={`font-bold text-lg ${
                               pick.prediction === 'over' ? 'text-green-500' : 'text-red-500'
                             }`}>
@@ -448,15 +455,18 @@ export default function HistoryPage() {
                             </div>
                           </div>
 
-                          <div>
-                            <div className="text-gray-400 text-xs">Actual</div>
+                          <div className="w-20">
+                            <div className="text-gray-400 text-xs mb-1">Actual</div>
                             <div className="text-[#ff9f1c] font-bold text-lg">
                               {pick.actual_result ?? '--'}
                             </div>
                           </div>
 
-                          <div>
-                            <div className="text-gray-400 text-xs">{formatDate(pick.completed_at)}</div>
+                          <div className="w-32">
+                            <div className="text-gray-400 text-xs mb-1">Completed</div>
+                            <div className="text-gray-300 text-sm">
+                              {formatDate(pick.completed_at)}
+                            </div>
                           </div>
                         </div>
                       </div>
