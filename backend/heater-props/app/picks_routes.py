@@ -269,6 +269,7 @@ def check_user_picks_for_game(
 @router.get("/history")
 def get_pick_history(
     result: Optional[str] = None,
+    prop_type: Optional[str] = None,
     limit: int = 50,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -283,6 +284,11 @@ def get_pick_history(
     
     if result:
         query = query.filter(models.Pick.result == result)
+    
+    if prop_type:
+        query = query.join(models.PlayerProp).filter(
+            models.PlayerProp.prop_type == prop_type
+        )
     
     picks = query.order_by(models.Pick.graded_at.desc()).limit(limit).all()
     
